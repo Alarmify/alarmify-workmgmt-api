@@ -4,32 +4,52 @@ FROM golang:1.21-alpine AS builder
 # Set working directory
 WORKDIR /app
 
-# Install git (required for some Go dependencies)
-RUN apk add --no-cache git
+# Install git and ca-certificates (required for some Go dependencies)
+RUN apk add --no-cache git ca-certificates tzdata
 
 # Copy go mod files
-COPY go.mod go.sum ./
+COPY go.mod go.sum* ./
 
 # Download dependencies
-RUN go mod download
+# If go.sum doesn't exist, this will create it
+RUN go mod download && go mod verify
 
 # Copy source code
 COPY . .
 
+# Generate Swagger docs (if swag is available)
+RUN if command -v swag >/dev/null 2>&1; then \
+        swag init -g main.go --output docs --parseDependency --parseInternal || true; \
+    fi
+
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o workmgmt-api main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -a -installsuffix cgo \
+    -ldflags='-w -s -extldflags "-static"' \
+    -o workmgmt-api \
+    main.go
 
 # Final stage
 FROM alpine:latest
 
-# Install ca-certificates for HTTPS requests
+# Install ca-certificates for HTTPS requests and timezone data
 RUN apk --no-cache add ca-certificates tzdata
 
+# Create non-root user for security
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser
+
 # Set working directory
-WORKDIR /root/
+WORKDIR /app
 
 # Copy the binary from builder stage
 COPY --from=builder /app/workmgmt-api .
+
+# Change ownership to non-root user
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
 
 # Expose port
 EXPOSE 8089
@@ -37,6 +57,11 @@ EXPOSE 8089
 # Set environment variables
 ENV PORT=8089
 ENV ENVIRONMENT=production
+ENV GIN_MODE=release
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8089/api/v1/health || exit 1
 
 # Run the application
 CMD ["./workmgmt-api"]
