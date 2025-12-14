@@ -32,8 +32,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 # Final stage
 FROM alpine:latest
 
-# Install ca-certificates for HTTPS requests and timezone data
-RUN apk --no-cache add ca-certificates tzdata
+# Install ca-certificates for HTTPS requests, timezone data, and wget for health checks
+RUN apk --no-cache add ca-certificates tzdata wget
 
 # Create non-root user for security
 RUN addgroup -g 1000 appuser && \
@@ -61,7 +61,9 @@ ENV GIN_MODE=release
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8089/api/v1/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8089/api/v1/health 2>/dev/null || \
+        (apk add --no-cache wget >/dev/null 2>&1 && wget --no-verbose --tries=1 --spider http://localhost:8089/api/v1/health) || \
+        exit 1
 
 # Run the application
 CMD ["./workmgmt-api"]
