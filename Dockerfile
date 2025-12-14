@@ -17,9 +17,11 @@ RUN go mod download && go mod verify
 # Copy source code
 COPY . .
 
-# Generate Swagger docs (if swag is available)
-RUN if command -v swag >/dev/null 2>&1; then \
-        swag init -g main.go --output docs --parseDependency --parseInternal || true; \
+# Generate Swagger docs (optional - install swag if needed)
+RUN go install github.com/swaggo/swag/cmd/swag@latest 2>/dev/null || true && \
+    if command -v ~/go/bin/swag >/dev/null 2>&1 || command -v swag >/dev/null 2>&1; then \
+        (~/go/bin/swag init -g main.go --output docs --parseDependency --parseInternal 2>/dev/null || \
+         swag init -g main.go --output docs --parseDependency --parseInternal 2>/dev/null || true); \
     fi
 
 # Build the application
