@@ -22,6 +22,8 @@ COPY . .
 ENV PATH=$PATH:/go/bin
 RUN go install github.com/swaggo/swag/cmd/swag@latest
 RUN swag init -g main.go --output docs --parseDependency --parseInternal
+# Update go.sum after swagger generation (swag may introduce new dependencies)
+RUN go mod tidy
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
