@@ -6,7 +6,8 @@
 # Documentation
 README.md
 *.md
-docs/
+# Note: docs/ is needed for the build, so don't exclude it
+# docs/
 
 # IDE files
 .idea/
