@@ -17,10 +17,10 @@ RUN go mod download && go mod verify
 # Copy source code
 COPY . .
 
-# Note: Swagger docs should be pre-generated and committed to the repo
-# If you need to generate them during build, uncomment the following:
-# RUN go install github.com/swaggo/swag/cmd/swag@latest && \
-#     swag init -g main.go --output docs --parseDependency --parseInternal
+# Generate Swagger docs (required for build since main.go imports docs package)
+RUN go install github.com/swaggo/swag/cmd/swag@latest && \
+    export PATH=$PATH:~/go/bin && \
+    swag init -g main.go --output docs --parseDependency --parseInternal
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
