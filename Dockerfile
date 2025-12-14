@@ -19,7 +19,8 @@ COPY . .
 
 # Generate Swagger docs (required for build since main.go imports docs package)
 RUN go install github.com/swaggo/swag/cmd/swag@latest && \
-    export PATH=$PATH:~/go/bin && \
+    /go/bin/swag init -g main.go --output docs --parseDependency --parseInternal || \
+    $GOPATH/bin/swag init -g main.go --output docs --parseDependency --parseInternal || \
     swag init -g main.go --output docs --parseDependency --parseInternal
 
 # Build the application
